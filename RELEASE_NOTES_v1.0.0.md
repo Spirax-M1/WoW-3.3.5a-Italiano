@@ -47,6 +47,14 @@ Scaricare **WoW-ITA-v1.0.0.zip**, estrarlo completamente e avviare:
 
 Il checksum e disponibile anche come asset separato `WoW-ITA-v1.0.0.zip.sha256`.
 
+## Supporta il progetto
+
+Se questa localizzazione ti e stata utile e vuoi supportare lo sviluppo e gli aggiornamenti futuri, puoi lasciare una donazione tramite PayPal:
+
+**[Dona con PayPal](https://www.paypal.com/qrcodes/managed/437d6dd2-95e9-4bc9-9a92-8fb239820402?utm_source=consapp_download)**
+
+Le donazioni sono completamente facoltative e non sono necessarie per utilizzare il progetto.
+
 ## Nota
 
 Progetto non ufficiale. World of Warcraft e i relativi marchi appartengono ai rispettivi proprietari.
