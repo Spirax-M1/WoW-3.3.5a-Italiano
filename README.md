@@ -109,6 +109,14 @@ Il file:
 
 contiene invece l'hash dello ZIP pubblicabile.
 
+## Supporta il progetto
+
+Se questa localizzazione ti e stata utile e vuoi supportare lo sviluppo e gli aggiornamenti futuri, puoi lasciare una donazione tramite PayPal:
+
+**[Dona con PayPal](https://www.paypal.com/qrcodes/managed/437d6dd2-95e9-4bc9-9a92-8fb239820402?utm_source=consapp_download)**
+
+Le donazioni sono completamente facoltative e non sono necessarie per utilizzare il progetto.
+
 ## Nota
 
 Questa release e destinata esclusivamente al client 3.3.5a
