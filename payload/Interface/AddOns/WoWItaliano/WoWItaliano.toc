@@ -1,0 +1,18 @@
+## Interface: 30300
+## Title: WoWItaliano
+## Notes: Localizzazione italiana runtime per WoW 3.3.5a
+## Author: WoW-IT
+## Version: 1.0.0
+## RequiredDeps: QuestTradutor
+## DefaultState: Enabled
+
+Globals_IT.lua
+WoWItaliano_GlobalStrings.lua
+WoWItaliano_Bindings.lua
+WoWItaliano_UI.lua
+WoWItaliano_Final135_GlobalStrings.lua
+WoWItaliano_Final135_Bindings.lua
+QuestTitleIndex.lua
+QuestObjectiveLines_IT.lua
+CanonicalNames_IT.lua
+WoWItaliano.lua

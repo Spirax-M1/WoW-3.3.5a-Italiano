@@ -1,0 +1,232 @@
+{
+  "format": 1,
+  "name": "WoW 3.3.5a Italiano",
+  "version": "1.0.0",
+  "release_date": "2026-09-14",
+  "target": {
+    "game": "World of Warcraft Wrath of the Lich King",
+    "version": "3.3.5a",
+    "build": 12340,
+    "locale": "enUS"
+  },
+  "wow_exe": {
+    "original_sha256": "bf644876709c591acc17c0da8cdf1814edcc9f1e6bc109a8c0d5c38c79dc953c",
+    "patched_sha256": "3f783e6f9ec1d7631c70fb29aabefa20277abd79349751327d1c8e0df0a5c583",
+    "full_executable_distributed": false,
+    "patch_blocks": 6
+  },
+  "payload_file_count": 26,
+  "platforms": [
+    "Windows",
+    "Linux",
+    "Bazzite",
+    "Wine"
+  ],
+  "files": [
+    {
+      "path": "README.md",
+      "size": 2350,
+      "sha256": "9ffb37936aec7614e9e426ff393220241138d271c35875a57014b1a7aa28103c"
+    },
+    {
+      "path": "VERSION",
+      "size": 6,
+      "sha256": "59854984853104df5c353e2f681a15fc7924742f9a2e468c29af248dce45ce03"
+    },
+    {
+      "path": "install-linux.sh",
+      "size": 131,
+      "sha256": "3d464ef1a577385b624d265c6c5d4bf36cf53202c7649e05587dbda5b2e49624"
+    },
+    {
+      "path": "install.cmd",
+      "size": 525,
+      "sha256": "a474524cd1aab9d968f0ca259c901fdd7528788bd186568eaf20e66f1671679a"
+    },
+    {
+      "path": "install.ps1",
+      "size": 13349,
+      "sha256": "132bdb4db5f4a38d37fccb3b4f13c0a5b58c5a8470cc50a466f5e91a784f0f0b"
+    },
+    {
+      "path": "linux/wow_ita_linux.py",
+      "size": 16574,
+      "sha256": "5b8179c90d49f825fcdc436d0e0726ce4dcde224f3b0277f65c6b57dd0e68667"
+    },
+    {
+      "path": "metadata/SHA256SUMS",
+      "size": 3227,
+      "sha256": "fe688b4edec5cfa78085c7332cc419d738b83d7370ca852ef2aa96b66d0b696b"
+    },
+    {
+      "path": "metadata/client.txt",
+      "size": 290,
+      "sha256": "5b2c467770f264aa8e075a6a774f4dc1b3e354ceb8cc1c3439965679bdd16014"
+    },
+    {
+      "path": "metadata/patch_manifest.json",
+      "size": 1042,
+      "sha256": "916855386c2a7f51d2a3059d745d5cb68ca124341b4ccc6776b0dc3a90326d78"
+    },
+    {
+      "path": "payload/Data/enUS/patch-enUS-4.MPQ",
+      "size": 39802,
+      "sha256": "dcd59dbb64beb56d189fac468456894d036237992ae36d3394fff7e3c4ecb871"
+    },
+    {
+      "path": "payload/Data/patch-4.MPQ",
+      "size": 6005939,
+      "sha256": "75c852bc5a0b8cbfd61064903049b05917424256637625be85b97b69206cd09a"
+    },
+    {
+      "path": "payload/Interface/AddOns/QuestTradutor/CanonicalNames_IT.lua",
+      "size": 2228,
+      "sha256": "7826824f02abdfaea4bba120b7c17a55e6a7bdff70d16133d4ae435df2b38bff"
+    },
+    {
+      "path": "payload/Interface/AddOns/QuestTradutor/Fonts/frizquadratatt_pl.ttf",
+      "size": 57784,
+      "sha256": "a95f7905c41293458d9738e7579d3333d847421792a79db031d70e626083b415"
+    },
+    {
+      "path": "payload/Interface/AddOns/QuestTradutor/Fonts/morpheus_pl.ttf",
+      "size": 66248,
+      "sha256": "651523a12ba080f7b7110ad3d888f637f4713caaa519343060f41b591cbafc2a"
+    },
+    {
+      "path": "payload/Interface/AddOns/QuestTradutor/Gossip_IT.lua",
+      "size": 358392,
+      "sha256": "b30967189d5c8e3628920dace87cec777925d9783772b06d0111183e4b3f10bb"
+    },
+    {
+      "path": "payload/Interface/AddOns/QuestTradutor/Init/QuestTradutorInit.lua",
+      "size": 5895,
+      "sha256": "7f58b7907bd805355818dabbfdff61f0cf3d56bf82cb95c7eb5bd60c127d6b47"
+    },
+    {
+      "path": "payload/Interface/AddOns/QuestTradutor/OfficialExactOverrides_IT.lua",
+      "size": 7348,
+      "sha256": "7e51a5a06b61720bf55c65f4a23ac5a49086974ef04dfaba4e5886bff54cc44f"
+    },
+    {
+      "path": "payload/Interface/AddOns/QuestTradutor/QuestData_AI_IT.lua",
+      "size": 3759923,
+      "sha256": "fe83739fbcf26d02454e2c3f970359b320216021166f6f8328bcf0d6a883a210"
+    },
+    {
+      "path": "payload/Interface/AddOns/QuestTradutor/QuestData_Cleanup_IT.lua",
+      "size": 783878,
+      "sha256": "752716ecfac3beb5de42554b1c730802e95533b870920f6da1def0d72dc6e201"
+    },
+    {
+      "path": "payload/Interface/AddOns/QuestTradutor/QuestData_IT.lua",
+      "size": 6836348,
+      "sha256": "12b46872ccfde00c0966a38c4910087de13e4f2aa5cdf5a336cf5b80b94c32bd"
+    },
+    {
+      "path": "payload/Interface/AddOns/QuestTradutor/QuestList.lua",
+      "size": 506371,
+      "sha256": "030bc99507488ce928bbd8ef1f74b77427142510bcda2faa3ab96110770de5e8"
+    },
+    {
+      "path": "payload/Interface/AddOns/QuestTradutor/QuestTradutor.lua",
+      "size": 200825,
+      "sha256": "0b6a643601c7cab1784c8fe85ecb9a7506a4d254e49012cd12297c6428cf8817"
+    },
+    {
+      "path": "payload/Interface/AddOns/QuestTradutor/QuestTradutor.toc",
+      "size": 595,
+      "sha256": "796a31c94de4eaa031e93b162efbf95c60847c1cd2cf1f1d8a98fc7c68d85238"
+    },
+    {
+      "path": "payload/Interface/AddOns/QuestTradutor/ToolTipData_IT.lua",
+      "size": 868239,
+      "sha256": "60e79b2f16b9929086222743af45c0e0cb2e541f9f1ec0816602d15428cc40d1"
+    },
+    {
+      "path": "payload/Interface/AddOns/WoWItaliano/CanonicalNames_IT.lua",
+      "size": 915,
+      "sha256": "b446d9e14b090ebf982e9ed87997905e1dd1f772cf16cb0b49e4074f0c70f54c"
+    },
+    {
+      "path": "payload/Interface/AddOns/WoWItaliano/Globals_IT.lua",
+      "size": 691,
+      "sha256": "f35aa8936f20958e0936c9acc37344c758b2cc6d4a13ce67c3d3699bd15c975c"
+    },
+    {
+      "path": "payload/Interface/AddOns/WoWItaliano/QuestObjectiveLines_IT.lua",
+      "size": 1431378,
+      "sha256": "bf1bb94a8d4a339d0c25e24034215b699847c6a9e839a685f3b9f7058cedabc2"
+    },
+    {
+      "path": "payload/Interface/AddOns/WoWItaliano/QuestTitleIndex.lua",
+      "size": 281493,
+      "sha256": "41e4c2e8ec1d595362c3d7c2cfbd2376be276f1e8c818dcee2aeaadda286b9b6"
+    },
+    {
+      "path": "payload/Interface/AddOns/WoWItaliano/WoWItaliano.lua",
+      "size": 18793,
+      "sha256": "ded0ebbb4774f888291d868f1797b11dc333ee1f8b10d28c725680cc9ced2636"
+    },
+    {
+      "path": "payload/Interface/AddOns/WoWItaliano/WoWItaliano.toc",
+      "size": 439,
+      "sha256": "caa7a9c250ac05a58675547d1a267f54291efab664a8df24567799da9a5e1a1d"
+    },
+    {
+      "path": "payload/Interface/AddOns/WoWItaliano/WoWItaliano_Bindings.lua",
+      "size": 40269,
+      "sha256": "8185446bdc391662e35abda78dc423e97a122aa10c5e848303242e6d24070e1e"
+    },
+    {
+      "path": "payload/Interface/AddOns/WoWItaliano/WoWItaliano_Final135_Bindings.lua",
+      "size": 2245,
+      "sha256": "099c6dba7efb2f31bfebd72576d26d680aa1035c9ea2e17a46d3d7dd33972daa"
+    },
+    {
+      "path": "payload/Interface/AddOns/WoWItaliano/WoWItaliano_Final135_GlobalStrings.lua",
+      "size": 4501,
+      "sha256": "e1e575620a3ce564e0148432fe1219d3aafd6ddc690fd0e2d72fc71780e74474"
+    },
+    {
+      "path": "payload/Interface/AddOns/WoWItaliano/WoWItaliano_GlobalStrings.lua",
+      "size": 507042,
+      "sha256": "c930dd4aa7f806c0c47362f0e7ed56e54d184c2972a4383361e41f58e3a958cf"
+    },
+    {
+      "path": "payload/Interface/AddOns/WoWItaliano/WoWItaliano_UI.lua",
+      "size": 2915,
+      "sha256": "ffa0d527d31d3d1fa0ccda0e1ff529ed211a5ed351e4f9a57461b7290e2cd334"
+    },
+    {
+      "path": "refresh-linux.sh",
+      "size": 131,
+      "sha256": "a1125fa641b46b4988eab198632c08c62c0129acce1a737ec918287fbc5cd228"
+    },
+    {
+      "path": "refresh.cmd",
+      "size": 505,
+      "sha256": "dfaff1f0b076c18f41c0aede34109cb50e29afb53089fa842f3bc18ad0b9a797"
+    },
+    {
+      "path": "refresh.ps1",
+      "size": 621,
+      "sha256": "d75cf1bd0618e816b7c866f215dbc59553cb2cc6f1dcb6ad38e9cfe485d8d959"
+    },
+    {
+      "path": "uninstall-linux.sh",
+      "size": 133,
+      "sha256": "151f93cf5643e7099d74bf8c620b47de7944f0c8cbdcb9ada897e7a0197e916d"
+    },
+    {
+      "path": "uninstall.cmd",
+      "size": 537,
+      "sha256": "a2460e570b812980ac88586b27b08fbcaf049e3341f3c57ad40315132ad7a4b7"
+    },
+    {
+      "path": "uninstall.ps1",
+      "size": 11391,
+      "sha256": "14780ebc2ca1071857b9f4e9c9e89fc7715cb2ca074ffb752714f100a34486f5"
+    }
+  ]
+}

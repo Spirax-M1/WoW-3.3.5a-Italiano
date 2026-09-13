@@ -1,0 +1,53 @@
+{
+  "format": 1,
+  "package_version": "1.0.0",
+  "client": {
+    "name": "World of Warcraft",
+    "version": "3.3.5a",
+    "build": 12340,
+    "locale": "enUS"
+  },
+  "wow_exe": {
+    "original_sha256": "bf644876709c591acc17c0da8cdf1814edcc9f1e6bc109a8c0d5c38c79dc953c",
+    "patched_sha256": "3f783e6f9ec1d7631c70fb29aabefa20277abd79349751327d1c8e0df0a5c583",
+    "size": 7699456
+  },
+  "patches": [
+    {
+      "offset": 2048447,
+      "length": 1,
+      "old_hex": "74",
+      "new_hex": "EB"
+    },
+    {
+      "offset": 4282917,
+      "length": 1,
+      "old_hex": "75",
+      "new_hex": "EB"
+    },
+    {
+      "offset": 4282943,
+      "length": 1,
+      "old_hex": "01",
+      "new_hex": "03"
+    },
+    {
+      "offset": 4283029,
+      "length": 1,
+      "old_hex": "01",
+      "new_hex": "03"
+    },
+    {
+      "offset": 4283206,
+      "length": 1,
+      "old_hex": "7F",
+      "new_hex": "EB"
+    },
+    {
+      "offset": 4283231,
+      "length": 7,
+      "old_hex": "83C0035E8BE55D",
+      "new_hex": "B803000000EBED"
+    }
+  ]
+}
