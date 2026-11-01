@@ -3,6 +3,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -99,7 +100,7 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual((self.game/'Data/a.txt').read_text(), 'original a')
 
     def test_explicit_path_is_authoritative(self):
-        self.assertEqual(app.detect_game(self.root, str(self.game)), self.game)
+        self.assertEqual(app.detect_game(self.root, str(self.game)), self.game.resolve())
         with self.assertRaises(RuntimeError): app.detect_game(self.game, str(self.game/'missing'))
 
     def test_invalid_patch_ranges(self):
@@ -129,9 +130,13 @@ class InstallerTests(unittest.TestCase):
         for name in ('install.ps1', 'uninstall.ps1'):
             shutil.copy2(ROOT/name, self.root/name)
         def invoke(name, path):
+            env = os.environ.copy()
+            # Windows PowerShell must construct its own module search path;
+            # inheriting PowerShell 7's path can hide its built-in modules.
+            env.pop('PSModulePath', None)
             return subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
                                    '-File', str(self.root/name), '-GamePath', str(path)],
-                                  capture_output=True, text=True, timeout=30)
+                                  capture_output=True, text=True, timeout=30, env=env)
         for name in ('install.ps1', 'install.ps1', 'uninstall.ps1'):
             result = invoke(name, self.game)
             self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
