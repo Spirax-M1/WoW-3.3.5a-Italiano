@@ -18,12 +18,12 @@ Leggere README.md, docs/audit.md e docs/provenance.md. Controllare lo stato corr
 
 ## Stato
 
-Controlli di percorso, checksum, backup e offset migliorati; documentazione riscritta; manifest storici spostati sotto docs/releases/v1.0.0. Payload e patch binarie invariati. I test locali hanno superato 10 casi; il caso Windows è saltato localmente perché PowerShell non è disponibile. La CI esegue il test Windows e il parsing degli script.
+Controlli di percorso, checksum, backup e offset migliorati; documentazione riscritta; manifest storici spostati sotto docs/releases/v1.0.0. Payload e byte sostitutivi invariati. Compatibilità basata su PE x86, versione 3.3.5.12340 e contesti di tutte le sei regioni; nessun vincolo su provenienza o hash globale. Richiesti i tre archivi locale enUS elencati nel manifest. Ripristino chirurgico dell'eseguibile; altre patch conservate. Helper Windows condiviso: client-compatibility.ps1. Test locali: 14 superati e due test Windows da eseguire in CI. PowerShell 7 locale usato per parsing e confronto Python/PowerShell su quattro eseguibili reali, senza modificarli. La CI esegue il test Windows e il parsing degli script.
 
 ## Prossimi passi
 
 1. Verificare tutti i controlli CI sul commit più recente.
-2. Completare la parità Windows/Linux elencata nell'audit, aggiungendo test negativi Windows.
+2. Estendere collaudo Windows e casi negativi, verificare conflitti tra MPQ HD e traduzione.
 3. Progettare rollback e recupero dopo interruzione, senza sovrascrivere la baseline originale.
 4. Eseguire collaudo controllato su copie del client supportato, con installazione, refresh e ripristino.
 5. Completare provenienza/licenze e preparare manifest di una nuova release solo dopo il collaudo.

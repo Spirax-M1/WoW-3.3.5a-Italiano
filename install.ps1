@@ -6,6 +6,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $Root "client-compatibility.ps1")
 $PayloadRoot = Join-Path $Root "payload"
 $MetadataRoot = Join-Path $Root "metadata"
 $PatchManifestPath = Join-Path $MetadataRoot "patch_manifest.json"
@@ -265,39 +266,19 @@ $PatchManifest = Get-Content `
     -Raw |
     ConvertFrom-Json
 
-$OriginalHash = (
-    $PatchManifest.wow_exe.original_sha256
-).ToLowerInvariant()
-
-$PatchedHash = (
-    $PatchManifest.wow_exe.patched_sha256
-).ToLowerInvariant()
-
-$CurrentHash = Get-Sha256 $WowPath
-
-Write-Host "SHA256 Wow.exe:"
-Write-Host $CurrentHash
-
-$WowState = ""
-
-if ($CurrentHash -eq $OriginalHash) {
-    $WowState = "ORIGINAL"
-    Write-Host "Stato: client originale compatibile" -ForegroundColor Green
+$null = Get-SafePath $GamePath "Wow.exe"
+foreach ($Relative in $PatchManifest.required_files) {
+    $Required = Get-SafePath $GamePath $Relative
+    if (-not (Test-Path -LiteralPath $Required -PathType Leaf) -or (Get-Item -LiteralPath $Required).Length -eq 0) {
+        throw "File richiesto dalla localizzazione mancante o vuoto: $Relative"
+    }
 }
-elseif ($CurrentHash -eq $PatchedHash) {
-    $WowState = "PATCHED"
-    Write-Host "Stato: Wow.exe gia patchato" -ForegroundColor Green
-}
-else {
-    throw @"
-Wow.exe non riconosciuto.
-
-Questo installer supporta esclusivamente:
-World of Warcraft WotLK 3.3.5a build 12340 enUS.
-
-Il file NON verra modificato.
-"@
-}
+[byte[]]$OriginalData = [IO.File]::ReadAllBytes($WowPath)
+[byte[]]$Candidate = Get-CompatibleBytes $OriginalData $PatchManifest
+$OriginalHash = Get-BytesHash $OriginalData
+$PatchedHash = Get-BytesHash $Candidate
+$WowState = if ($OriginalHash -eq $PatchedHash) { "PATCHED" } else { "ORIGINAL" }
+Write-Host "Client 3.3.5a compatibile: $WowState"
 
 # ------------------------------------------------------------
 # Baseline backup
@@ -319,8 +300,9 @@ foreach ($Source in $ActualPayload) {
     $null = Get-SafePath $GamePath $Relative
     $null = Get-SafePath $GamePath ("WoW-ITA-Backup/v1.0.0-baseline/files/" + $Relative)
 }
-if (Test-Path -LiteralPath $WowBackupPath -PathType Leaf) {
-    if ((Get-Sha256 $WowBackupPath) -ne $OriginalHash) { throw "Backup Wow.exe corrotto." }
+if (Test-Path -LiteralPath $BaselineManifestPath -PathType Leaf) {
+    $ExistingBaseline = Get-Content -LiteralPath $BaselineManifestPath -Raw | ConvertFrom-Json
+    Assert-PayloadBaseline $ExistingBaseline $GamePath $PayloadRoot $BaselineFiles
 }
 
 New-Item `
@@ -449,37 +431,8 @@ Write-Host "Payload installato: $($PayloadFiles.Count) file"
 if ($WowState -eq "ORIGINAL") {
     Write-Step "Patch Wow.exe"
 
-    [byte[]]$WowBytes = [IO.File]::ReadAllBytes($WowPath)
-
-    foreach ($Patch in $PatchManifest.patches) {
-        $Offset = [int64]$Patch.offset
-
-        [byte[]]$OldBytes = Convert-HexToBytes $Patch.old_hex
-        [byte[]]$NewBytes = Convert-HexToBytes $Patch.new_hex
-
-        if ($OldBytes.Length -ne $NewBytes.Length) {
-            throw "Patch con lunghezza OLD/NEW differente."
-        }
-
-        if (
-             $Offset -lt 0 -or ($Offset + $OldBytes.Length) -gt
-            $WowBytes.Length
-        ) {
-            throw "Patch fuori dai limiti di Wow.exe."
-        }
-
-        for ($i = 0; $i -lt $OldBytes.Length; $i++) {
-            if ($WowBytes[$Offset + $i] -ne $OldBytes[$i]) {
-                throw (
-                    "Byte originali inattesi all'offset 0x{0:X}." -f $Offset
-                )
-            }
-        }
-
-        for ($i = 0; $i -lt $NewBytes.Length; $i++) {
-            $WowBytes[$Offset + $i] = $NewBytes[$i]
-        }
-    }
+    if ((Get-Sha256 $WowPath) -ne $OriginalHash) { throw "Wow.exe modificato durante l'installazione." }
+    [byte[]]$WowBytes = $Candidate
 
     $TempWow = Join-Path $GamePath "Wow.exe.wowita.tmp"
 

@@ -7,6 +7,7 @@ import json
 import shutil
 import sys
 import re
+import struct
 
 
 PACKAGE_VERSION = "1.0.0"
@@ -179,6 +180,57 @@ def detect_game(root, supplied=None):
         print("Wow.exe non trovato in quella cartella.")
 
 
+def compatible_bytes(data, manifest, reverse=False):
+    """Validate the build and every patch site before producing any output."""
+    def fail():
+        raise RuntimeError("Wow.exe incompatibile: richiesti PE x86 3.3.5a (12340) e istruzioni della mod intatte.")
+    try:
+        if data[:2] != b'MZ': fail()
+        pe = struct.unpack_from('<I', data, 60)[0]
+        if data[pe:pe+4] != b'PE\0\0': fail()
+        machine, count = struct.unpack_from('<HH', data, pe+4)
+        opt = struct.unpack_from('<H', data, pe+20)[0]
+        if machine != 0x14c or struct.unpack_from('<H', data, pe+24)[0] != 0x10b: fail()
+        sections = []
+        version_ok = False
+        version = struct.pack('<4I', 0xfeef04bd, 0x10000, 0x30003, 0x50000+12340)
+        for i in range(count):
+            h = pe+24+opt+i*40
+            size, start = struct.unpack_from('<II', data, h+16)
+            flags = struct.unpack_from('<I', data, h+36)[0]
+            if start+size > len(data): fail()
+            sections.append((start, start+size, flags))
+            if data[h:h+8].rstrip(b'\0') == b'.rsrc' and version in data[start:start+size]:
+                version_ok = True
+        if not version_ok: fail()
+    except (struct.error, IndexError):
+        fail()
+    out = bytearray(data)
+    used = set()
+    for patch in manifest['patches']:
+        o = int(patch['offset'])
+        old, new = hex_bytes(patch['old_hex']), hex_bytes(patch['new_hex'])
+        before, after = hex_bytes(patch['context_before_hex']), hex_bytes(patch['context_after_hex'])
+        n = len(old)
+        if (not n or len(new) != n or not before or not after or o < len(before)
+                or o+n+len(after) > len(data) or used.intersection(range(o,o+n))): fail()
+        used.update(range(o,o+n))
+        if not any(a <= o-len(before) and o+n+len(after) <= b and flags & 0x20000000
+                   for a,b,flags in sections): fail()
+        if data[o-len(before):o] != before or data[o+n:o+n+len(after)] != after: fail()
+        if data[o:o+n] not in (old,new): fail()
+        out[o:o+n] = old if reverse else new
+    if not used: fail()
+    return bytes(out)
+
+
+def verify_required_files(game, manifest):
+    for rel in manifest['required_files']:
+        p = safe_path(game, rel)
+        if not p.is_file() or not p.stat().st_size:
+            raise RuntimeError(f"File richiesto dalla localizzazione mancante o vuoto: {rel}")
+
+
 def patch_forward(data, patches):
     out = bytearray(data)
 
@@ -344,17 +396,7 @@ def make_baseline(root, game, wow_state, original_hash):
         print("Backup Wow.exe originale: creato")
 
     elif wow_backup.is_file():
-        if sha256(wow_backup) != original_hash:
-            raise RuntimeError("Backup Wow.exe corrotto.")
-        print(
-            "Backup Wow.exe originale: gia presente"
-        )
-
-    else:
-        print(
-            "Wow.exe era gia patchato; "
-            "nessun originale da salvare."
-        )
+        print("Backup storico Wow.exe conservato; il ripristino modifica solo le regioni della mod.")
 
     return baseline_root
 
@@ -368,44 +410,15 @@ def install(root, game):
 
     manifest = load_manifest(root)
 
-    original_hash = (
-        manifest["wow_exe"]["original_sha256"]
-        .lower()
-    )
-
-    patched_hash = (
-        manifest["wow_exe"]["patched_sha256"]
-        .lower()
-    )
-
     patches = manifest["patches"]
-
-    wow = game / "Wow.exe"
-
-    print()
-    print("== Verifica Wow.exe ==")
-
-    current = sha256(wow)
-
-    print("SHA256:")
-    print(current)
-
-    if current == original_hash:
-        wow_state = "ORIGINAL"
-        print("Stato: client originale compatibile")
-
-    elif current == patched_hash:
-        wow_state = "PATCHED"
-        print("Stato: Wow.exe gia patchato")
-
-    else:
-        raise RuntimeError(
-            "\nWow.exe non riconosciuto.\n\n"
-            "Sono supportati esclusivamente:\n"
-            "World of Warcraft WotLK 3.3.5a "
-            "build 12340 enUS.\n\n"
-            "Il file NON e stato modificato."
-        )
+    wow = safe_path(game, "Wow.exe")
+    verify_required_files(game, manifest)
+    original_data = wow.read_bytes()
+    candidate = compatible_bytes(original_data, manifest)
+    original_hash = hashlib.sha256(original_data).hexdigest()
+    patched_hash = hashlib.sha256(candidate).hexdigest()
+    wow_state = "PATCHED" if candidate == original_data else "ORIGINAL"
+    print(f"Client 3.3.5a compatibile: {wow_state}")
 
     print()
     print("== Backup ==")
@@ -418,11 +431,6 @@ def install(root, game):
         safe_path(game, relative)
     for source in payload_files(root):
         safe_path(game, "WoW-ITA-Backup/v1.0.0-baseline/files/" + relative_payload_path(root, source).as_posix())
-    if wow_state == "ORIGINAL":
-        candidate = patch_forward(wow.read_bytes(), patches)
-        if hashlib.sha256(candidate).hexdigest() != patched_hash:
-            raise RuntimeError("Patch non corrispondente all'hash atteso.")
-
     make_baseline(
         root,
         game,
@@ -457,12 +465,9 @@ def install(root, game):
         print()
         print("== Patch Wow.exe ==")
 
-        original_data = wow.read_bytes()
-
-        patched_data = patch_forward(
-            original_data,
-            patches,
-        )
+        if wow.read_bytes() != original_data:
+            raise RuntimeError("Wow.exe modificato durante l'installazione.")
+        patched_data = candidate
 
         temp = game / "Wow.exe.wowita.tmp"
         temp.write_bytes(patched_data)
@@ -523,18 +528,6 @@ def install(root, game):
 def uninstall(root, game):
     manifest = load_manifest(root)
 
-    original_hash = (
-        manifest["wow_exe"]["original_sha256"]
-        .lower()
-    )
-
-    patched_hash = (
-        manifest["wow_exe"]["patched_sha256"]
-        .lower()
-    )
-
-    patches = manifest["patches"]
-
     backup_root = game / "WoW-ITA-Backup"
     baseline_root = (
         backup_root / "v1.0.0-baseline"
@@ -558,13 +551,8 @@ def uninstall(root, game):
     safe_path(game, "Wow.exe")
     safe_path(game, "Wow.exe.wowita.restore.tmp")
     safe_path(game, "WoW-ITA-Backup/v1.0.0-baseline/Wow.exe.original")
-    current = sha256(game / "Wow.exe")
-    if current not in (original_hash, patched_hash):
-        raise RuntimeError("Wow.exe sconosciuto: nessun file modificato.")
-    if current == patched_hash:
-        candidate = wow_backup.read_bytes() if wow_backup.is_file() else patch_reverse((game / "Wow.exe").read_bytes(), patches)
-        if hashlib.sha256(candidate).hexdigest() != original_hash:
-            raise RuntimeError("Ripristino Wow.exe non valido: nessun file modificato.")
+    original_data = (game / "Wow.exe").read_bytes()
+    candidate = compatible_bytes(original_data, manifest, reverse=True)
 
     print("Baseline trovata:")
     print(baseline_root)
@@ -612,92 +600,15 @@ def uninstall(root, game):
     print()
     print("== Ripristino Wow.exe ==")
 
-    current = sha256(wow)
-
-    if current == original_hash:
-        print("Wow.exe e gia originale.")
-
-    elif current == patched_hash:
-        if wow_backup.is_file():
-            if sha256(wow_backup) != original_hash:
-                raise RuntimeError(
-                    "Backup Wow.exe originale "
-                    "con hash inatteso."
-                )
-
-            temp = game / "Wow.exe.wowita.restore.tmp"
-
-            shutil.copy2(
-                wow_backup,
-                temp
-            )
-
-            if sha256(temp) != original_hash:
-                temp.unlink(missing_ok=True)
-                raise RuntimeError(
-                    "Verifica restore Wow.exe fallita."
-                )
-
-            temp.replace(wow)
-
-            print(
-                "Wow.exe ripristinato "
-                "dal backup originale."
-            )
-
-        else:
-            print(
-                "Backup originale non presente."
-            )
-            print(
-                "Applico patch inversa verificata..."
-            )
-
-            restored_data = patch_reverse(
-                wow.read_bytes(),
-                patches,
-            )
-
-            temp = game / "Wow.exe.wowita.restore.tmp"
-            temp.write_bytes(restored_data)
-
-            if sha256(temp) != original_hash:
-                temp.unlink(missing_ok=True)
-                raise RuntimeError(
-                    "La patch inversa non produce "
-                    "il Wow.exe originale previsto."
-                )
-
-            temp.replace(wow)
-
-            print("Patch inversa Wow.exe: PASS")
-
-    else:
-        print()
-        print("ATTENZIONE:")
-        print(
-            "Wow.exe ha un hash sconosciuto."
-        )
-        print(
-            "Per sicurezza NON viene modificato."
-        )
-
-    final_hash = sha256(wow)
-
-    if final_hash == original_hash:
-        print(
-            "Wow.exe finale: ORIGINAL_EXPECTED"
-        )
-
-    elif final_hash == patched_hash:
-        print(
-            "Wow.exe finale: ancora PATCHED"
-        )
-
-    else:
-        print(
-            "Wow.exe finale: HASH SCONOSCIUTO"
-        )
+    if wow.read_bytes() != original_data:
+        raise RuntimeError("Wow.exe modificato durante la disinstallazione.")
+    if candidate != original_data:
+        temp = game / "Wow.exe.wowita.restore.tmp"
+        temp.write_bytes(candidate)
+        if temp.read_bytes() != candidate:
+            raise RuntimeError("Verifica ripristino Wow.exe fallita.")
+        temp.replace(wow)
+    print("Regioni della mod ripristinate; altre modifiche conservate.")
 
     # Pulisce solo directory rimaste vuote.
     dirs = [
