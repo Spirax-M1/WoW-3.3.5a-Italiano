@@ -139,3 +139,11 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual((self.game/'Data/a.txt').read_text(), 'original a')
         result = invoke('install.ps1', self.game/'missing')
         self.assertNotEqual(result.returncode, 0)
+        result = invoke('install.ps1', self.game)
+        self.assertEqual(result.returncode, 0, result.stdout+result.stderr)
+        backup = self.baseline/'files/Data/a.txt'
+        backup.unlink()
+        result = invoke('uninstall.ps1', self.game)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertTrue((self.game/'Data/b.txt').exists())
+        self.assertEqual((self.game/'Wow.exe').read_bytes(), self.patched)
