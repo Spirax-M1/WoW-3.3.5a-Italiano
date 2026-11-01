@@ -187,7 +187,7 @@ class InstallerTests(unittest.TestCase):
             env = os.environ.copy()
             # Windows PowerShell must construct its own module search path;
             # inheriting PowerShell 7's path can hide its built-in modules.
-            env.pop('PSModulePath', None)
+            env = {k: v for k, v in env.items() if k.upper() != 'PSMODULEPATH'}
             return subprocess.run(['powershell.exe', '-NoProfile', '-ExecutionPolicy', 'Bypass',
                                    '-File', str(self.root/name), '-GamePath', str(path)],
                                   capture_output=True, text=True, timeout=30, env=env)
@@ -213,7 +213,7 @@ class InstallerTests(unittest.TestCase):
             shutil.copy2(ROOT/name, self.root/name)
         exe = self.game/'Wow.exe'
         exe.write_bytes(self.original + b'HD trailer')
-        env = os.environ.copy(); env.pop('PSModulePath',None)
+        env = {k: v for k, v in os.environ.items() if k.upper() != 'PSMODULEPATH'}
         for name in ('install.ps1','install.ps1','uninstall.ps1'):
             result = subprocess.run(['powershell.exe','-NoProfile','-ExecutionPolicy','Bypass',
                 '-File',str(self.root/name),'-GamePath',str(self.game)],
