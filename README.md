@@ -1,126 +1,68 @@
-# WoW 3.3.5a Italiano - v1.0.0
+# WoW 3.3.5a Italiano
 
-Localizzazione italiana all-in-one per World of Warcraft:
-Wrath of the Lich King 3.3.5a build 12340 enUS.
+Localizzazione italiana per World of Warcraft: Wrath of the Lich King **3.3.5a, build 12340, client enUS**, con installer Windows e Linux.
 
-## Compatibilita
+Manutenzione del progetto: **Salvatore ([Spirax-M1](https://github.com/Spirax-M1))**.
 
-E supportato esclusivamente:
+**Questo branch è una bozza di manutenzione.** Le modifiche agli installer sono verificate con file artificiali; il pacchetto non è una nuova release collaudata nel gioco. I file di localizzazione rimangono invariati.
 
-- World of Warcraft WotLK 3.3.5a
-- build 12340
-- client enUS
+## Cosa contiene
 
-L'installer verifica Wow.exe prima di modificarlo.
+- Patch MPQ e addon per la localizzazione dell'interfaccia e dei testi.
+- Verifica del client tramite SHA-256 prima della patch.
+- Backup dei file preesistenti, refresh e disinstallazione.
+- Patch dell'eseguibile per offset, senza distribuire un Wow.exe completo.
 
-Se l'eseguibile non corrisponde alla versione originale supportata
-o alla versione gia patchata, l'installazione viene interrotta.
+Il client supportato è identificato da `metadata/patch_manifest.json`. Un eseguibile con hash diverso viene rifiutato. La copertura e la qualità delle traduzioni richiedono una verifica nel gioco: il numero di file non è una misura della completezza linguistica.
 
-## Windows
+## Uso
 
-Estrarre completamente lo ZIP.
+Chiudi il gioco e conserva una copia indipendente della cartella del client. Estrai completamente il pacchetto. Non eseguire questa bozza direttamente sulla tua unica installazione.
 
-Installazione:
+Su Windows, esegui `install.cmd`. Per indicare il client:
 
-    install.cmd
+```bat
+install.cmd -GamePath "D:\Games\WoW 3.3.5a"
+refresh.cmd -GamePath "D:\Games\WoW 3.3.5a"
+uninstall.cmd -GamePath "D:\Games\WoW 3.3.5a"
+```
 
-Refresh / riparazione:
+Su Linux servono Python 3.10+ e Bash:
 
-    refresh.cmd
+```sh
+./install-linux.sh "$HOME/Games/World of Warcraft 3.3.5a"
+./refresh-linux.sh "$HOME/Games/World of Warcraft 3.3.5a"
+./uninstall-linux.sh "$HOME/Games/World of Warcraft 3.3.5a"
+```
 
-Disinstallazione:
+Se specifichi un percorso errato, l'operazione si interrompe. Se non lo specifichi, l'installer cerca nelle cartelle previste e può chiedere il percorso.
 
-    uninstall.cmd
+## Backup e limiti
 
-L'installer prova a rilevare automaticamente la cartella del client.
-Se non riesce, chiede il percorso che contiene Wow.exe.
+La baseline si trova in `WoW-ITA-Backup/v1.0.0-baseline/` dentro il client. Conserva i file presenti alla prima installazione e, quando disponibile, l'eseguibile originale. Il refresh riutilizza quella baseline. I nuovi backup del payload includono hash; le baseline precedenti non contengono questa verifica e restano meno verificabili.
 
-## Linux / Bazzite
+La disinstallazione ripristina lo stato precedente alla prima installazione, non eventuali modifiche successive ai file gestiti. Non eliminare la baseline prima di aver verificato il ripristino.
 
-Richiede Python 3 e Bash.
+I controlli preliminari evitano diverse modifiche parziali, ma **l'operazione non è ancora transazionale**: un'interruzione, spazio esaurito o un errore di copia può lasciare file già modificati. Non avviare due installer contemporaneamente. Consulta [audit e limiti](docs/audit.md) prima di valutare una nuova release.
 
-Installazione:
+## Integrità e sviluppo
 
-    ./install-linux.sh
+`metadata/SHA256SUMS` descrive il payload. Gli hash rilevano alterazioni rispetto all'elenco, ma non costituiscono una firma dell'autore. I manifest della vecchia release sono conservati in `docs/releases/v1.0.0/` e non descrivono questa bozza.
 
-Con percorso esplicito:
+```sh
+python -m unittest discover -s tests -v
+```
 
-    ./install-linux.sh "$HOME/Games/World of Warcraft 3.3.5a"
+I test creano client artificiali in cartelle temporanee. La CI verifica Linux e Windows, compresi parsing PowerShell e un ciclo Windows di installazione/refresh/disinstallazione. Non equivale a un test dentro WoW o su Bazzite/Wine.
 
-Refresh:
+- [Riprendere il lavoro da un altro PC](docs/RESUME.md)
+- [Audit tecnico](docs/audit.md)
+- [Provenienza dei componenti](docs/provenance.md)
 
-    ./refresh-linux.sh
+## Contatti
 
-Disinstallazione:
+[smanciagli1@outlook.com](mailto:smanciagli1@outlook.com)
 
-    ./uninstall-linux.sh
+Se desideri sostenere la manutenzione: [donazione facoltativa](https://www.paypal.com/qrcodes/managed/437d6dd2-95e9-4bc9-9a92-8fb239820402). L'utilizzo non richiede donazioni.
 
-Se necessario:
-
-    chmod +x install-linux.sh refresh-linux.sh uninstall-linux.sh linux/wow_ita_linux.py
-
-## Backup
-
-Alla prima installazione viene creata:
-
-    WoW-ITA-Backup/v1.0.0-baseline/
-
-La baseline conserva i file preesistenti che vengono sovrascritti.
-
-Se l'installer parte da un Wow.exe originale compatibile,
-ne salva inoltre una copia verificata in:
-
-    WoW-ITA-Backup/v1.0.0-baseline/Wow.exe.original
-
-La baseline iniziale non viene sovrascritta dai successivi refresh.
-
-## Patch di Wow.exe
-
-Il pacchetto NON distribuisce un Wow.exe completo.
-
-L'installer:
-
-1. verifica SHA-256;
-2. verifica i byte originali negli offset previsti;
-3. crea il backup quando possibile;
-4. modifica solamente i byte necessari;
-5. verifica l'SHA-256 finale.
-
-L'uninstaller puo anche applicare la patch inversa verificata.
-
-## Contenuto
-
-- Data/patch-4.MPQ
-- Data/enUS/patch-enUS-4.MPQ
-- QuestTradutor
-- WoWItaliano
-- installer Windows
-- installer Linux/Bazzite
-- manifest
-- checksum
-
-## Integrita
-
-SHA256SUMS.txt contiene gli hash SHA-256 dei file della release.
-
-Il file:
-
-    WoW-ITA-v1.0.0.zip.sha256
-
-contiene invece l'hash dello ZIP pubblicabile.
-
-## Supporta il progetto
-
-Se questa localizzazione ti e stata utile e vuoi supportare lo sviluppo e gli aggiornamenti futuri, puoi lasciare una donazione tramite PayPal:
-
-**[Dona con PayPal](https://www.paypal.com/qrcodes/managed/437d6dd2-95e9-4bc9-9a92-8fb239820402?utm_source=consapp_download)**
-
-Le donazioni sono completamente facoltative e non sono necessarie per utilizzare il progetto.
-
-## Nota
-
-Questa release e destinata esclusivamente al client 3.3.5a
-build 12340 enUS.
-
-La localizzazione non e un prodotto ufficiale Blizzard Entertainment.
-World of Warcraft e i relativi marchi appartengono ai rispettivi proprietari.
+Progetto non ufficiale. World of Warcraft e i relativi marchi appartengono ai rispettivi proprietari.

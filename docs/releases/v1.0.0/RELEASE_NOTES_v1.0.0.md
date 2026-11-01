@@ -58,3 +58,4 @@ Le donazioni sono completamente facoltative e non sono necessarie per utilizzare
 ## Nota
 
 Progetto non ufficiale. World of Warcraft e i relativi marchi appartengono ai rispettivi proprietari.
+

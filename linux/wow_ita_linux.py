@@ -6,6 +6,7 @@ import hashlib
 import json
 import shutil
 import sys
+import re
 
 
 PACKAGE_VERSION = "1.0.0"
@@ -29,51 +30,67 @@ def package_root():
     return Path(__file__).resolve().parent.parent
 
 
+def safe_path(root, relative):
+    """Reject absolute/traversal paths and symlinks before touching client files."""
+    relative = str(relative).replace('\\', '/')
+    parts = relative.split('/')
+    if not relative or any(p in ('', '.', '..') or ':' in p for p in parts):
+        raise RuntimeError(f"Percorso non sicuro: {relative}")
+    target = root
+    for part in parts:
+        target = target / part
+        if target.is_symlink():
+            raise RuntimeError(f"Link simbolico non supportato: {target}")
+    if target.exists() and not target.is_file():
+        raise RuntimeError(f"File atteso: {target}")
+    return target
+
+
 def verify_package(root):
     checksum_path = root / "metadata/SHA256SUMS"
-
-    if not checksum_path.is_file():
-        raise RuntimeError("metadata/SHA256SUMS non trovato.")
-
-    verified = 0
-
-    for raw in checksum_path.read_text(
-        encoding="utf-8",
-        errors="strict"
-    ).splitlines():
-
+    expected_files = set()
+    for raw in checksum_path.read_text(encoding="utf-8").splitlines():
         if not raw.strip():
             continue
+        match = re.fullmatch(r"([0-9a-fA-F]{64})  (payload/.+)", raw)
+        if not match:
+            raise RuntimeError(f"Riga SHA256SUMS non valida: {raw}")
+        expected, relative = match.groups()
+        path = safe_path(root, relative)
+        if relative in expected_files:
+            raise RuntimeError(f"Checksum duplicato: {relative}")
+        expected_files.add(relative)
+        if not path.is_file() or sha256(path) != expected.lower():
+            raise RuntimeError(f"Checksum errato o file mancante: {relative}")
+    actual_files = {p.relative_to(root).as_posix() for p in payload_files(root)}
+    if not expected_files or actual_files != expected_files:
+        raise RuntimeError("Elenco payload diverso dai checksum verificati.")
+    return len(expected_files)
 
-        try:
-            expected, rel = raw.split("  ", 1)
-        except ValueError:
-            raise RuntimeError(
-                f"Riga SHA256SUMS non valida: {raw}"
-            )
 
-        path = root / rel
-
-        if not path.is_file():
-            raise RuntimeError(
-                f"File del pacchetto mancante: {rel}"
-            )
-
-        actual = sha256(path)
-
-        if actual.lower() != expected.lower():
-            raise RuntimeError(
-                f"Checksum errato: {rel}"
-            )
-
-        verified += 1
-
-    if verified != 26:
-        raise RuntimeError(
-            f"Payload inatteso: {verified} file verificati invece di 26."
-        )
-
-    return verified
+def validate_baseline(root, game):
+    baseline_root = game / "WoW-ITA-Backup/v1.0.0-baseline"
+    baseline_path = safe_path(game, "WoW-ITA-Backup/v1.0.0-baseline/baseline.json")
+    baseline = json.loads(baseline_path.read_text(encoding="utf-8-sig"))
+    if baseline.get('format') != 1 or baseline.get('package_version') != PACKAGE_VERSION:
+        raise RuntimeError("Formato o versione baseline incompatibile.")
+    expected = {relative_payload_path(root, p).as_posix() for p in payload_files(root)}
+    found = set()
+    for entry in baseline['files']:
+        rel = entry['relative_path'].replace('\\', '/')
+        safe_path(game, rel)
+        if rel in found or type(entry.get('existed_before_install')) is not bool:
+            raise RuntimeError("Baseline duplicata o non valida.")
+        found.add(rel)
+        if entry['existed_before_install']:
+            backup = safe_path(baseline_root / 'files', rel)
+            if not backup.is_file():
+                raise RuntimeError(f"Backup mancante: {rel}")
+            if entry.get('sha256') and sha256(backup) != entry['sha256']:
+                raise RuntimeError(f"Backup corrotto: {rel}")
+    if found != expected:
+        raise RuntimeError("Baseline non corrispondente al payload.")
+    return baseline
 
 
 def load_manifest(root):
@@ -102,12 +119,10 @@ def detect_game(root, supplied=None):
     candidates = []
 
     if supplied:
-        try:
-            p = normalize_game_path(supplied)
-            if is_game_dir(p):
-                candidates.append(p)
-        except Exception:
-            pass
+        p = normalize_game_path(supplied)
+        if not is_game_dir(p):
+            raise RuntimeError(f"Wow.exe non trovato nel percorso indicato: {p}")
+        return p
 
     home = Path.home()
 
@@ -172,6 +187,10 @@ def patch_forward(data, patches):
         old = hex_bytes(patch["old_hex"])
         new = hex_bytes(patch["new_hex"])
 
+        if (not old or len(old) != len(new) or offset < 0
+                or offset + len(old) > len(data)):
+            raise RuntimeError("Patch non valida o fuori dai limiti.")
+
         if len(old) != len(new):
             raise RuntimeError(
                 "Patch OLD/NEW con lunghezze differenti."
@@ -199,6 +218,10 @@ def patch_reverse(data, patches):
         old = hex_bytes(patch["old_hex"])
         new = hex_bytes(patch["new_hex"])
 
+        if (not old or len(old) != len(new) or offset < 0
+                or offset + len(old) > len(data)):
+            raise RuntimeError("Patch non valida o fuori dai limiti.")
+
         if len(old) != len(new):
             raise RuntimeError(
                 "Patch OLD/NEW con lunghezze differenti."
@@ -221,10 +244,10 @@ def patch_reverse(data, patches):
 def payload_files(root):
     base = root / "payload"
 
-    return sorted(
-        p for p in base.rglob("*")
-        if p.is_file()
-    )
+    paths = list(base.rglob("*"))
+    if any(p.is_symlink() for p in paths) or base.is_symlink():
+        raise RuntimeError("Link simbolici nel payload non supportati.")
+    return sorted(p for p in paths if p.is_file())
 
 
 def relative_payload_path(root, path):
@@ -277,6 +300,7 @@ def make_baseline(root, game, wow_state, original_hash):
             entries.append({
                 "relative_path": rel.as_posix(),
                 "existed_before_install": existed,
+                "sha256": sha256(backup) if existed else None,
             })
 
         baseline = {
@@ -296,6 +320,7 @@ def make_baseline(root, game, wow_state, original_hash):
 
         print("Baseline payload: creata")
     else:
+        validate_baseline(root, game)
         print(
             "Baseline payload: gia esistente, "
             "non viene sovrascritta"
@@ -319,6 +344,8 @@ def make_baseline(root, game, wow_state, original_hash):
         print("Backup Wow.exe originale: creato")
 
     elif wow_backup.is_file():
+        if sha256(wow_backup) != original_hash:
+            raise RuntimeError("Backup Wow.exe corrotto.")
         print(
             "Backup Wow.exe originale: gia presente"
         )
@@ -382,6 +409,19 @@ def install(root, game):
 
     print()
     print("== Backup ==")
+
+    for source in payload_files(root):
+        safe_path(game, relative_payload_path(root, source))
+    for relative in ("Wow.exe", "Wow.exe.wowita.tmp",
+                     "WoW-ITA-Backup/v1.0.0-baseline/baseline.json",
+                     "WoW-ITA-Backup/v1.0.0-baseline/Wow.exe.original"):
+        safe_path(game, relative)
+    for source in payload_files(root):
+        safe_path(game, "WoW-ITA-Backup/v1.0.0-baseline/files/" + relative_payload_path(root, source).as_posix())
+    if wow_state == "ORIGINAL":
+        candidate = patch_forward(wow.read_bytes(), patches)
+        if hashlib.sha256(candidate).hexdigest() != patched_hash:
+            raise RuntimeError("Patch non corrispondente all'hash atteso.")
 
     make_baseline(
         root,
@@ -514,11 +554,17 @@ def uninstall(root, game):
             "file alla cieca."
         )
 
-    baseline = json.loads(
-        baseline_json.read_text(
-            encoding="utf-8"
-        )
-    )
+    baseline = validate_baseline(root, game)
+    safe_path(game, "Wow.exe")
+    safe_path(game, "Wow.exe.wowita.restore.tmp")
+    safe_path(game, "WoW-ITA-Backup/v1.0.0-baseline/Wow.exe.original")
+    current = sha256(game / "Wow.exe")
+    if current not in (original_hash, patched_hash):
+        raise RuntimeError("Wow.exe sconosciuto: nessun file modificato.")
+    if current == patched_hash:
+        candidate = wow_backup.read_bytes() if wow_backup.is_file() else patch_reverse((game / "Wow.exe").read_bytes(), patches)
+        if hashlib.sha256(candidate).hexdigest() != original_hash:
+            raise RuntimeError("Ripristino Wow.exe non valido: nessun file modificato.")
 
     print("Baseline trovata:")
     print(baseline_root)
@@ -530,7 +576,7 @@ def uninstall(root, game):
     removed = 0
 
     for entry in baseline["files"]:
-        rel = Path(entry["relative_path"])
+        rel = Path(entry["relative_path"].replace("\\", "/"))
         target = game / rel
 
         if entry["existed_before_install"]:
@@ -752,3 +798,4 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

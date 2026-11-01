@@ -22,4 +22,5 @@ if "%INSTALL_RESULT%"=="0" (
 
 echo.
 pause
-endlocal
+endlocal & exit /b %INSTALL_RESULT%
+

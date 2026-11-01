@@ -22,4 +22,5 @@ if "%REFRESH_RESULT%"=="0" (
 
 echo.
 pause
-endlocal
+endlocal & exit /b %REFRESH_RESULT%
+

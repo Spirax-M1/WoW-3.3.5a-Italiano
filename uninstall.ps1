@@ -8,6 +8,26 @@ $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $PatchManifestPath = Join-Path $Root "metadata\patch_manifest.json"
 
+
+function Get-SafePath {
+    param([string]$Base, [string]$Relative)
+    if ([string]::IsNullOrWhiteSpace($Relative) -or [IO.Path]::IsPathRooted($Relative) -or $Relative.Contains(':')) {
+        throw "Percorso non valido: $Relative"
+    }
+    $Current = $Base
+    foreach ($Part in ($Relative -split '[\\/]')) {
+        if ($Part -eq '' -or $Part -eq '.' -or $Part -eq '..') { throw "Percorso non valido: $Relative" }
+        $Current = Join-Path $Current $Part
+        if (Test-Path -LiteralPath $Current) {
+            $Item = Get-Item -LiteralPath $Current -Force
+            if (($Item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "Link o junction non supportato: $Current"
+            }
+        }
+    }
+    return $Current
+}
+
 function Write-Step {
     param([string]$Text)
 
@@ -99,11 +119,9 @@ $PatchedHash = (
 Write-Step "Ricerca client WoW"
 
 if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
-    try {
-        $GamePath = Normalize-GamePath $GamePath
-    }
-    catch {
-        $GamePath = ""
+    $GamePath = Normalize-GamePath $GamePath
+    if (-not (Test-WowFolder $GamePath)) {
+        throw "Wow.exe non trovato nel percorso indicato: $GamePath"
     }
 }
 
@@ -211,6 +229,38 @@ Write-Host $BaselineRoot
 # Ripristino payload precedente
 # ------------------------------------------------------------
 
+# Verify all required backups before removing or replacing any payload file.
+if ($Baseline.format -ne 1 -or $Baseline.package_version -ne "1.0.0") {
+    throw "Baseline incompatibile."
+}
+$Seen = @{}
+foreach ($Relative in @("Wow.exe", "Wow.exe.wowita.restore.tmp", "WoW-ITA-Backup/v1.0.0-baseline/Wow.exe.original")) { $null = Get-SafePath $GamePath $Relative }
+foreach ($Entry in $Baseline.files) {
+    $Relative = [string]$Entry.relative_path
+    $null = Get-SafePath $GamePath $Relative
+    if ($Seen.ContainsKey($Relative)) { throw "Baseline duplicata." }
+    $Seen[$Relative] = $true
+    if ([IO.Path]::IsPathRooted($Relative) -or $Relative -match '(^|[\\/])\.\.([\\/]|$)' -or $Relative.Contains(':')) {
+        throw "Percorso baseline non valido: $Relative"
+    }
+    if ([bool]$Entry.existed_before_install) {
+        $BackupFile = Get-SafePath $BaselineFiles $Relative
+        if (-not (Test-Path -LiteralPath $BackupFile -PathType Leaf)) {
+            throw "Backup mancante per: $Relative"
+        }
+        if ($Entry.PSObject.Properties.Name -contains 'sha256') {
+            if ($Entry.sha256 -and (Get-Sha256 $BackupFile) -ne $Entry.sha256) { throw "Backup corrotto: $Relative" }
+        }
+    }
+}
+$PreflightHash = Get-Sha256 $WowPath
+if ($PreflightHash -ne $OriginalHash -and $PreflightHash -ne $PatchedHash) {
+    throw "Wow.exe sconosciuto: nessun file modificato."
+}
+if ((Test-Path -LiteralPath $WowBackupPath -PathType Leaf) -and (Get-Sha256 $WowBackupPath) -ne $OriginalHash) {
+    throw "Backup Wow.exe corrotto: nessun file modificato."
+}
+
 Write-Step "Ripristino file precedenti"
 
 $Restored = 0
@@ -218,10 +268,10 @@ $Removed = 0
 
 foreach ($Entry in $Baseline.files) {
     $Relative = [string]$Entry.relative_path
-    $Target = Join-Path $GamePath $Relative
+    $Target = Get-SafePath $GamePath $Relative
 
     if ([bool]$Entry.existed_before_install) {
-        $BackupFile = Join-Path $BaselineFiles $Relative
+        $BackupFile = Get-SafePath $BaselineFiles $Relative
 
         if (-not (Test-Path -LiteralPath $BackupFile -PathType Leaf)) {
             throw "Backup mancante per: $Relative"
@@ -315,7 +365,7 @@ elseif ($CurrentHash -eq $PatchedHash) {
             }
 
             if (
-                ($Offset + $NewBytes.Length) -gt
+                 $Offset -lt 0 -or ($Offset + $NewBytes.Length) -gt
                 $WowBytes.Length
             ) {
                 throw "Patch inversa fuori dai limiti di Wow.exe."
@@ -414,3 +464,4 @@ Write-Host $BaselineRoot
 Write-Host ""
 Write-Host "Puoi eliminarla manualmente solo dopo aver verificato"
 Write-Host "che il client e stato ripristinato correttamente."
+

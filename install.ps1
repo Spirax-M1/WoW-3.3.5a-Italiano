@@ -11,6 +11,26 @@ $MetadataRoot = Join-Path $Root "metadata"
 $PatchManifestPath = Join-Path $MetadataRoot "patch_manifest.json"
 $ChecksumPath = Join-Path $MetadataRoot "SHA256SUMS"
 
+
+function Get-SafePath {
+    param([string]$Base, [string]$Relative)
+    if ([string]::IsNullOrWhiteSpace($Relative) -or [IO.Path]::IsPathRooted($Relative) -or $Relative.Contains(':')) {
+        throw "Percorso non valido: $Relative"
+    }
+    $Current = $Base
+    foreach ($Part in ($Relative -split '[\\/]')) {
+        if ($Part -eq '' -or $Part -eq '.' -or $Part -eq '..') { throw "Percorso non valido: $Relative" }
+        $Current = Join-Path $Current $Part
+        if (Test-Path -LiteralPath $Current) {
+            $Item = Get-Item -LiteralPath $Current -Force
+            if (($Item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "Link o junction non supportato: $Current"
+            }
+        }
+    }
+    return $Current
+}
+
 function Write-Step {
     param([string]$Text)
     Write-Host ""
@@ -98,6 +118,7 @@ if (-not (Test-Path -LiteralPath $ChecksumPath -PathType Leaf)) {
 $ChecksumLines = Get-Content -LiteralPath $ChecksumPath
 
 $VerifiedFiles = 0
+$VerifiedPaths = @{}
 
 foreach ($Line in $ChecksumLines) {
     if ([string]::IsNullOrWhiteSpace($Line)) {
@@ -110,7 +131,10 @@ foreach ($Line in $ChecksumLines) {
 
     $ExpectedHash = $Matches[1].ToLowerInvariant()
     $RelativePath = $Matches[2] -replace '/', '\'
-    $PackageFile = Join-Path $Root $RelativePath
+    if ($RelativePath -notmatch '^payload[\\/]') { throw "Checksum fuori dal payload." }
+    if ($VerifiedPaths.ContainsKey($RelativePath)) { throw "Checksum duplicato: $RelativePath" }
+    $VerifiedPaths[$RelativePath] = $true
+    $PackageFile = Get-SafePath $Root $RelativePath
 
     if (-not (Test-Path -LiteralPath $PackageFile -PathType Leaf)) {
         throw "File del pacchetto mancante: $RelativePath"
@@ -125,6 +149,12 @@ foreach ($Line in $ChecksumLines) {
     $VerifiedFiles++
 }
 
+$ActualPayload = @(Get-ChildItem -LiteralPath $PayloadRoot -File -Recurse)
+if ($VerifiedFiles -eq 0 -or $ActualPayload.Count -ne $VerifiedFiles) { throw "Elenco payload diverso dai checksum." }
+foreach ($File in $ActualPayload) {
+    $Relative = "payload\" + $File.FullName.Substring($PayloadRoot.Length).TrimStart('\')
+    if (-not $VerifiedPaths.ContainsKey($Relative)) { throw "File non verificato: $Relative" }
+}
 Write-Host "Checksum payload: PASS ($VerifiedFiles file)"
 
 # ------------------------------------------------------------
@@ -136,16 +166,13 @@ Write-Step "Ricerca client WoW 3.3.5a"
 $Candidates = New-Object System.Collections.Generic.List[string]
 
 if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
-    try {
-        $Candidate = Normalize-GamePath $GamePath
-
-        if (Test-WowFolder $Candidate) {
-            $Candidates.Add($Candidate)
-        }
+    $Candidate = Normalize-GamePath $GamePath
+    if (-not (Test-WowFolder $Candidate)) {
+        throw "Wow.exe non trovato nel percorso indicato: $Candidate"
     }
-    catch {
-    }
+    $Candidates.Add($Candidate)
 }
+else {
 
 $LocalCandidates = @(
     $Root,
@@ -179,6 +206,8 @@ foreach ($Drive in (Get-PSDrive -PSProvider FileSystem)) {
             )
         }
     }
+}
+
 }
 
 $Candidates = @(
@@ -282,6 +311,18 @@ $BaselineFiles = Join-Path $BaselineRoot "files"
 $BaselineManifestPath = Join-Path $BaselineRoot "baseline.json"
 $WowBackupPath = Join-Path $BaselineRoot "Wow.exe.original"
 
+foreach ($Relative in @("Wow.exe", "Wow.exe.wowita.tmp", "WoW-ITA-Backup/v1.0.0-baseline/baseline.json", "WoW-ITA-Backup/v1.0.0-baseline/Wow.exe.original")) {
+    $null = Get-SafePath $GamePath $Relative
+}
+foreach ($Source in $ActualPayload) {
+    $Relative = $Source.FullName.Substring($PayloadRoot.Length).TrimStart('\')
+    $null = Get-SafePath $GamePath $Relative
+    $null = Get-SafePath $GamePath ("WoW-ITA-Backup/v1.0.0-baseline/files/" + $Relative)
+}
+if (Test-Path -LiteralPath $WowBackupPath -PathType Leaf) {
+    if ((Get-Sha256 $WowBackupPath) -ne $OriginalHash) { throw "Backup Wow.exe corrotto." }
+}
+
 New-Item `
     -ItemType Directory `
     -Path $BaselineRoot `
@@ -303,11 +344,11 @@ if (-not (Test-Path -LiteralPath $BaselineManifestPath -PathType Leaf)) {
             $PayloadRoot.Length
         ).TrimStart('\')
 
-        $Target = Join-Path $GamePath $Relative
+        $Target = Get-SafePath $GamePath $Relative
         $Existed = Test-Path -LiteralPath $Target -PathType Leaf
 
         if ($Existed) {
-            $BackupTarget = Join-Path $BaselineFiles $Relative
+            $BackupTarget = Get-SafePath $BaselineFiles $Relative
             $BackupParent = Split-Path -Parent $BackupTarget
 
             New-Item `
@@ -325,6 +366,7 @@ if (-not (Test-Path -LiteralPath $BaselineManifestPath -PathType Leaf)) {
         $BaselineEntries += [PSCustomObject]@{
             relative_path = $Relative
             existed_before_install = [bool]$Existed
+            sha256 = $(if ($Existed) { Get-Sha256 $BackupTarget } else { $null })
         }
     }
 
@@ -383,7 +425,7 @@ foreach ($Source in $PayloadFiles) {
         $PayloadRoot.Length
     ).TrimStart('\')
 
-    $Target = Join-Path $GamePath $Relative
+    $Target = Get-SafePath $GamePath $Relative
     $TargetParent = Split-Path -Parent $Target
 
     New-Item `
@@ -420,7 +462,7 @@ if ($WowState -eq "ORIGINAL") {
         }
 
         if (
-            ($Offset + $OldBytes.Length) -gt
+             $Offset -lt 0 -or ($Offset + $OldBytes.Length) -gt
             $WowBytes.Length
         ) {
             throw "Patch fuori dai limiti di Wow.exe."
@@ -494,7 +536,7 @@ foreach ($Line in $ChecksumLines) {
 
     $ExpectedHash = $Matches[1].ToLowerInvariant()
     $Relative = $Matches[2] -replace '/', '\'
-    $Target = Join-Path $GamePath $Relative
+    $Target = Get-SafePath $GamePath $Relative
 
     if (-not (Test-Path -LiteralPath $Target -PathType Leaf)) {
         throw "File installato mancante: $Relative"
@@ -519,3 +561,4 @@ Write-Host "Client:"
 Write-Host $GamePath
 Write-Host ""
 Write-Host "Puoi avviare Wow.exe normalmente."
+

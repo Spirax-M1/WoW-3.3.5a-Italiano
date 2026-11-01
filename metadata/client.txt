@@ -8,3 +8,4 @@ bf644876709c591acc17c0da8cdf1814edcc9f1e6bc109a8c0d5c38c79dc953c
 
 Expected patched Wow.exe SHA256:
 3f783e6f9ec1d7631c70fb29aabefa20277abd79349751327d1c8e0df0a5c583
+
