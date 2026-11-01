@@ -17,37 +17,54 @@
       "offset": 2048447,
       "length": 1,
       "old_hex": "74",
-      "new_hex": "EB"
+      "new_hex": "EB",
+      "context_before_hex": "CDE6FF83C40485C0",
+      "context_after_hex": "39566838D7A1008D"
     },
     {
       "offset": 4282917,
       "length": 1,
       "old_hex": "75",
-      "new_hex": "EB"
+      "new_hex": "EB",
+      "context_before_hex": "00E85DE8C0FF85C0",
+      "context_after_hex": "055E8BE55DC3817D"
     },
     {
       "offset": 4282943,
       "length": 1,
       "old_hex": "01",
-      "new_hex": "03"
+      "new_hex": "03",
+      "context_before_hex": "FC51E862B6C0FFB8",
+      "context_after_hex": "0000005E8BE55DC3"
     },
     {
       "offset": 4283029,
       "length": 1,
       "old_hex": "01",
-      "new_hex": "03"
+      "new_hex": "03",
+      "context_before_hex": "51E80DB6C0FF5FB8",
+      "context_after_hex": "0000005E8BE55DC3"
     },
     {
       "offset": 4283206,
       "length": 1,
       "old_hex": "7F",
-      "new_hex": "EB"
+      "new_hex": "EB",
+      "context_before_hex": "1985F6B801000000",
+      "context_after_hex": "1283C8FFF7D81BC0"
     },
     {
       "offset": 4283231,
       "length": 7,
       "old_hex": "83C0035E8BE55D",
-      "new_hex": "B803000000EBED"
+      "new_hex": "B803000000EBED",
+      "context_before_hex": "C333C0F7D81BC05F",
+      "context_after_hex": "C3CCCCCCCCCCCCCC"
     }
+  ],
+  "required_files": [
+    "Data/enUS/locale-enUS.MPQ",
+    "Data/enUS/expansion-locale-enUS.MPQ",
+    "Data/enUS/lichking-locale-enUS.MPQ"
   ]
 }

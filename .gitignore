@@ -15,3 +15,8 @@ snapshots/
 Thumbs.db
 .idea/
 .vscode/
+
+
+dist/
+__pycache__/
+.work/

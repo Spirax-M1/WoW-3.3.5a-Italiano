@@ -6,7 +6,28 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+. (Join-Path $Root "client-compatibility.ps1")
 $PatchManifestPath = Join-Path $Root "metadata\patch_manifest.json"
+
+
+function Get-SafePath {
+    param([string]$Base, [string]$Relative)
+    if ([string]::IsNullOrWhiteSpace($Relative) -or [IO.Path]::IsPathRooted($Relative) -or $Relative.Contains(':')) {
+        throw "Percorso non valido: $Relative"
+    }
+    $Current = $Base
+    foreach ($Part in ($Relative -split '[\\/]')) {
+        if ($Part -eq '' -or $Part -eq '.' -or $Part -eq '..') { throw "Percorso non valido: $Relative" }
+        $Current = Join-Path $Current $Part
+        if (Test-Path -LiteralPath $Current) {
+            $Item = Get-Item -LiteralPath $Current -Force
+            if (($Item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+                throw "Link o junction non supportato: $Current"
+            }
+        }
+    }
+    return $Current
+}
 
 function Write-Step {
     param([string]$Text)
@@ -71,7 +92,7 @@ function Normalize-GamePath {
 }
 
 Write-Host ""
-Write-Host "WoW 3.3.5a Italiano - Uninstall v1.0.0"
+Write-Host "WoW 3.3.5a Italiano - Uninstall v1.0.1"
 Write-Host "======================================"
 Write-Host ""
 
@@ -84,14 +105,6 @@ $PatchManifest = Get-Content `
     -Raw |
     ConvertFrom-Json
 
-$OriginalHash = (
-    $PatchManifest.wow_exe.original_sha256
-).ToLowerInvariant()
-
-$PatchedHash = (
-    $PatchManifest.wow_exe.patched_sha256
-).ToLowerInvariant()
-
 # ------------------------------------------------------------
 # Trova client
 # ------------------------------------------------------------
@@ -99,11 +112,9 @@ $PatchedHash = (
 Write-Step "Ricerca client WoW"
 
 if (-not [string]::IsNullOrWhiteSpace($GamePath)) {
-    try {
-        $GamePath = Normalize-GamePath $GamePath
-    }
-    catch {
-        $GamePath = ""
+    $GamePath = Normalize-GamePath $GamePath
+    if (-not (Test-WowFolder $GamePath)) {
+        throw "Wow.exe non trovato nel percorso indicato: $GamePath"
     }
 }
 
@@ -211,6 +222,38 @@ Write-Host $BaselineRoot
 # Ripristino payload precedente
 # ------------------------------------------------------------
 
+$null = Get-SafePath $GamePath "WoW-ITA-Backup/v1.0.0-baseline/baseline.json"
+Assert-PayloadBaseline $Baseline $GamePath (Join-Path $Root "payload") $BaselineFiles
+
+# Verify all required backups before removing or replacing any payload file.
+if ($Baseline.format -ne 1 -or $Baseline.package_version -ne "1.0.0") {
+    throw "Baseline incompatibile."
+}
+$Seen = @{}
+foreach ($Relative in @("Wow.exe", "Wow.exe.wowita.restore.tmp", "WoW-ITA-Backup/v1.0.0-baseline/Wow.exe.original")) { $null = Get-SafePath $GamePath $Relative }
+foreach ($Entry in $Baseline.files) {
+    $Relative = [string]$Entry.relative_path
+    $null = Get-SafePath $GamePath $Relative
+    if ($Seen.ContainsKey($Relative)) { throw "Baseline duplicata." }
+    $Seen[$Relative] = $true
+    if ([IO.Path]::IsPathRooted($Relative) -or $Relative -match '(^|[\\/])\.\.([\\/]|$)' -or $Relative.Contains(':')) {
+        throw "Percorso baseline non valido: $Relative"
+    }
+    if ([bool]$Entry.existed_before_install) {
+        $BackupFile = Get-SafePath $BaselineFiles $Relative
+        if (-not (Test-Path -LiteralPath $BackupFile -PathType Leaf)) {
+            throw "Backup mancante per: $Relative"
+        }
+        if ($Entry.PSObject.Properties.Name -contains 'sha256') {
+            if ($Entry.sha256 -and (Get-Sha256 $BackupFile) -ne $Entry.sha256) { throw "Backup corrotto: $Relative" }
+        }
+    }
+}
+[byte[]]$OriginalData = [IO.File]::ReadAllBytes($WowPath)
+$PreflightHash = Get-BytesHash $OriginalData
+[byte[]]$Candidate = Get-CompatibleBytes $OriginalData $PatchManifest $true
+$RestoredHash = Get-BytesHash $Candidate
+
 Write-Step "Ripristino file precedenti"
 
 $Restored = 0
@@ -218,10 +261,10 @@ $Removed = 0
 
 foreach ($Entry in $Baseline.files) {
     $Relative = [string]$Entry.relative_path
-    $Target = Join-Path $GamePath $Relative
+    $Target = Get-SafePath $GamePath $Relative
 
     if ([bool]$Entry.existed_before_install) {
-        $BackupFile = Join-Path $BaselineFiles $Relative
+        $BackupFile = Get-SafePath $BaselineFiles $Relative
 
         if (-not (Test-Path -LiteralPath $BackupFile -PathType Leaf)) {
             throw "Backup mancante per: $Relative"
@@ -262,120 +305,14 @@ Write-Host "File rimossi      : $Removed"
 
 Write-Step "Ripristino Wow.exe"
 
-$CurrentHash = Get-Sha256 $WowPath
-
-Write-Host "Hash corrente:"
-Write-Host $CurrentHash
-
-if ($CurrentHash -eq $OriginalHash) {
-    Write-Host "Wow.exe e gia originale."
+if ((Get-Sha256 $WowPath) -ne $PreflightHash) { throw "Wow.exe modificato durante la disinstallazione." }
+if ($PreflightHash -ne $RestoredHash) {
+    $TempWow = Join-Path $GamePath "Wow.exe.wowita.restore.tmp"
+    [IO.File]::WriteAllBytes($TempWow, $Candidate)
+    if ((Get-Sha256 $TempWow) -ne $RestoredHash) { throw "Verifica ripristino Wow.exe fallita." }
+    Move-Item -LiteralPath $TempWow -Destination $WowPath -Force
 }
-elseif ($CurrentHash -eq $PatchedHash) {
-
-    if (Test-Path -LiteralPath $WowBackupPath -PathType Leaf) {
-        $BackupHash = Get-Sha256 $WowBackupPath
-
-        if ($BackupHash -ne $OriginalHash) {
-            throw "Il backup Wow.exe originale ha un hash inatteso."
-        }
-
-        $TempWow = Join-Path $GamePath "Wow.exe.wowita.restore.tmp"
-
-        Copy-Item `
-            -LiteralPath $WowBackupPath `
-            -Destination $TempWow `
-            -Force
-
-        if ((Get-Sha256 $TempWow) -ne $OriginalHash) {
-            Remove-Item -LiteralPath $TempWow -Force
-            throw "Verifica del Wow.exe da ripristinare fallita."
-        }
-
-        Move-Item `
-            -LiteralPath $TempWow `
-            -Destination $WowPath `
-            -Force
-
-        Write-Host "Wow.exe ripristinato dal backup originale."
-    }
-    else {
-        Write-Host "Backup originale non presente."
-        Write-Host "Applico la patch inversa verificata..."
-
-        [byte[]]$WowBytes = [IO.File]::ReadAllBytes($WowPath)
-
-        foreach ($Patch in $PatchManifest.patches) {
-            $Offset = [int64]$Patch.offset
-
-            [byte[]]$OldBytes = Convert-HexToBytes $Patch.old_hex
-            [byte[]]$NewBytes = Convert-HexToBytes $Patch.new_hex
-
-            if ($OldBytes.Length -ne $NewBytes.Length) {
-                throw "Patch inversa con lunghezze differenti."
-            }
-
-            if (
-                ($Offset + $NewBytes.Length) -gt
-                $WowBytes.Length
-            ) {
-                throw "Patch inversa fuori dai limiti di Wow.exe."
-            }
-
-            for ($i = 0; $i -lt $NewBytes.Length; $i++) {
-                if ($WowBytes[$Offset + $i] -ne $NewBytes[$i]) {
-                    throw (
-                        "Byte patched inattesi all'offset 0x{0:X}." -f $Offset
-                    )
-                }
-            }
-
-            for ($i = 0; $i -lt $OldBytes.Length; $i++) {
-                $WowBytes[$Offset + $i] = $OldBytes[$i]
-            }
-        }
-
-        $TempWow = Join-Path $GamePath "Wow.exe.wowita.restore.tmp"
-
-        [IO.File]::WriteAllBytes(
-            $TempWow,
-            $WowBytes
-        )
-
-        if ((Get-Sha256 $TempWow) -ne $OriginalHash) {
-            Remove-Item -LiteralPath $TempWow -Force
-            throw "La patch inversa non produce il Wow.exe originale atteso."
-        }
-
-        Move-Item `
-            -LiteralPath $TempWow `
-            -Destination $WowPath `
-            -Force
-
-        Write-Host "Patch inversa Wow.exe: PASS"
-    }
-}
-else {
-    Write-Host ""
-    Write-Host "ATTENZIONE:" -ForegroundColor Yellow
-    Write-Host "Wow.exe ha un hash sconosciuto."
-    Write-Host "Per sicurezza NON viene modificato." -ForegroundColor Yellow
-}
-
-# ------------------------------------------------------------
-# Verifica finale Wow.exe
-# ------------------------------------------------------------
-
-$FinalHash = Get-Sha256 $WowPath
-
-if ($FinalHash -eq $OriginalHash) {
-    Write-Host "Wow.exe finale: ORIGINAL_EXPECTED" -ForegroundColor Green
-}
-elseif ($FinalHash -eq $PatchedHash) {
-    Write-Host "Wow.exe finale: ancora PATCHED" -ForegroundColor Yellow
-}
-else {
-    Write-Host "Wow.exe finale: HASH SCONOSCIUTO" -ForegroundColor Yellow
-}
+Write-Host "Regioni della mod ripristinate; altre modifiche conservate."
 
 # ------------------------------------------------------------
 # Pulizia cartelle vuote create dagli addon
@@ -414,3 +351,4 @@ Write-Host $BaselineRoot
 Write-Host ""
 Write-Host "Puoi eliminarla manualmente solo dopo aver verificato"
 Write-Host "che il client e stato ripristinato correttamente."
+

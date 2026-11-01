@@ -22,4 +22,5 @@ if "%UNINSTALL_RESULT%"=="0" (
 
 echo.
 pause
-endlocal
+endlocal & exit /b %UNINSTALL_RESULT%
+
