@@ -94,7 +94,7 @@ function Normalize-GamePath {
 }
 
 Write-Host ""
-Write-Host "WoW 3.3.5a Italiano - Installer v1.0.0"
+Write-Host "WoW 3.3.5a Italiano - Installer v1.0.1"
 Write-Host "======================================="
 Write-Host ""
 

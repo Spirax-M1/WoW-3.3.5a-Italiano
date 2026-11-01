@@ -1,10 +1,14 @@
-# WoW 3.3.5a Italiano
+# WoW 3.3.5 italiano: patch e traduzione per WotLK 3.3.5a
 
 Localizzazione italiana per World of Warcraft: Wrath of the Lich King **3.3.5a, build 12340, client enUS**, con installer Windows e Linux.
 
 Manutenzione del progetto: **Salvatore ([Spirax-M1](https://github.com/Spirax-M1))**.
 
-**Questo branch è una bozza di manutenzione.** Le modifiche agli installer sono verificate con file artificiali; il pacchetto non è una nuova release collaudata nel gioco. I file di localizzazione rimangono invariati.
+**[Scarica la patch italiana per WoW 3.3.5a](https://github.com/Spirax-M1/WoW-3.3.5a-Italiano/releases/latest)** — versione 1.0.1, per Windows e Linux.
+
+Questa traduzione italiana per WoW 3.3.5 / 3.3.5a WotLK include archivi MPQ e addon per interfaccia e testi. Richiede un client già installato: il download non contiene il gioco né un Wow.exe completo. I file di localizzazione sono invariati rispetto alla v1.0.0; la v1.0.1 corregge riconoscimento del client e ripristino degli installer.
+
+I test automatici verificano Windows e Linux. Il manutentore ha confermato l'uso della localizzazione sul proprio client HD; questo non certifica ogni pacchetto HD disponibile.
 
 ## Cosa contiene
 
@@ -21,7 +25,7 @@ I requisiti sono in `metadata/patch_manifest.json`, senza percorsi personali o d
 
 ## Uso
 
-Chiudi il gioco e conserva una copia indipendente della cartella del client. Estrai completamente il pacchetto. Non eseguire questa bozza direttamente sulla tua unica installazione.
+Chiudi il gioco e conserva una copia indipendente della cartella del client. Estrai completamente il pacchetto. Prova prima su una copia se usi altre mod o un pacchetto HD personalizzato.
 
 Su Windows, esegui `install.cmd`. Per indicare il client:
 

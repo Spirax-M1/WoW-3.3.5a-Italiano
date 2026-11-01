@@ -669,7 +669,7 @@ def main():
     print()
     print(
         "WoW 3.3.5a Italiano - "
-        f"{args.action.capitalize()} Linux v{PACKAGE_VERSION}"
+        f"{args.action.capitalize()} Linux v{(root / 'VERSION').read_text().strip()}"
     )
     print("=" * 52)
     print()
